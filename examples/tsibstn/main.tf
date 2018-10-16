@@ -1,16 +1,21 @@
 locals {
-  vpc_id = "vpc-aa11bb22"
+  vpc_id                     = "vpc-aa11bb22"
+  ami_owner_account_id       = "aa11bb22cc33dd44"
+  session_manager_bucket_arn = "arn:aws:s3:::bucket-to-store-session-manager-logs"
+  environment                = "staging"
+  product_domain             = "tsi"
+  service_name               = "tsibstn"
 }
 
 module "this" {
-  source                     = "../../terraform-aws-tvlk-bastion"
-  service_name               = "tsibstn"
-  environment                = "production"
-  product_domain             = "tsi"
+  source                     = "../../../terraform-aws-tvlk-bastion"
+  service_name               = "${local.service_name}"
+  environment                = "${local.environment}"
+  product_domain             = "${local.product_domain}"
   vpc_id                     = "${local.vpc_id}"
-  subnet_tier                = "my-private-subnet"
-  ami_account_owner          = "aa11bb22cc33dd44"
-  session_manager_bucket_arn = "arn:aws:s3:::bucket-to-store-session-manager-logs"
+  subnet_tier                = "app"                                 #valid value only app, public, data
+  ami_owner_account_id       = "${local.ami_owner_account_id}"
+  session_manager_bucket_arn = "${local.session_manager_bucket_arn}"
   sg_id                      = ["${aws_security_group.this.id}"]
 }
 

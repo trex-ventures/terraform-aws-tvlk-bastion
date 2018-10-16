@@ -17,10 +17,11 @@ variable "vpc_id" {
 variable "subnet_tier" {
   description = "tier of subnet where ec2 instance reside."
   type        = "string"
+  default     = "app"
 }
 
-variable "ami_account_owner" {
-  description = "aws account id of golden bastion AMI owner"
+variable "ami_owner_account_id" {
+  description = "aws account id who owns the golden bastion AMI owner"
   type        = "string"
 }
 
