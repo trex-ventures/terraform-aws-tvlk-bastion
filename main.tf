@@ -24,7 +24,6 @@ resource "aws_instance" "this" {
   ebs_optimized          = "${var.ebs_optimized}"
   subnet_id              = "${element(random_shuffle.subnet.result,0)}"
   iam_instance_profile   = "${module.instance_profile.instance_profile_name}"
-  key_name               = "tvlk-bernard"
 
   root_block_device = {
     volume_size = "${var.root_volume_size}"
