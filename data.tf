@@ -2,8 +2,8 @@ data "aws_subnet_ids" "subnet" {
   vpc_id = "${var.vpc_id}"
 
   filter = {
-    name   = "tag:Name"
-    values = ["${var.subnet_name}"]
+    name   = "tag:Tier"
+    values = ["${var.tier_subnet}"]
   }
 }
 
