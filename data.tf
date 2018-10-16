@@ -3,7 +3,7 @@ data "aws_subnet_ids" "subnet" {
 
   filter = {
     name   = "tag:Tier"
-    values = ["${var.tier_subnet}"]
+    values = ["${var.subnet_tier}"]
   }
 }
 
@@ -13,7 +13,7 @@ data "aws_ami" "bastion_ami" {
 
   filter = {
     name   = "name"
-    values = ["${var.bastion_ami_name_prefix}"]
+    values = ["${var.ami_name_prefix}"]
   }
 
   filter = {

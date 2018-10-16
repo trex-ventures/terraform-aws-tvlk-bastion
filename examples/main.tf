@@ -8,7 +8,7 @@ module "this" {
   environment                = "production"
   product_domain             = "tsi"
   vpc_id                     = "${local.vpc_id}"
-  subnet_name                = "my-private-subnet"
+  subnet_tier                = "my-private-subnet"
   ami_account_owner          = "aa11bb22cc33dd44"
   session_manager_bucket_arn = "arn:aws:s3:::bucket-to-store-session-manager-logs"
   sg_id                      = ["${aws_security_group.this.id}"]

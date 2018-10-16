@@ -14,7 +14,7 @@ variable "vpc_id" {
   type        = "string"
 }
 
-variable "tier_subnet" {
+variable "subnet_tier" {
   description = "tier of subnet where ec2 instance reside."
   type        = "string"
 }
