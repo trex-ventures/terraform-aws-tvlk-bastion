@@ -15,11 +15,6 @@ data "aws_ami" "bastion_ami" {
     name   = "name"
     values = ["${var.ami_name_prefix}"]
   }
-
-  filter = {
-    name   = "tag:Stage"
-    values = ["Stable"]
-  }
 }
 
 data "aws_iam_policy_document" "session_manager_policy" {
