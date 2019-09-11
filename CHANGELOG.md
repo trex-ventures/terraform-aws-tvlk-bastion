@@ -1,3 +1,9 @@
+## v2.1.0 (Sep 11, 2019)
+
+FEATURES:
+
+* Add support to manage DynamoDB Table
+
 ## v2.0.2 (May 7, 2019)
 
 BUG FIXES:
