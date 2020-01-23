@@ -1,3 +1,8 @@
+## v2.1.1 (Jan 23, 2020)
+BUG FIXES:
+
+* Fixes a bug where ingress security group rule for 3306 is mistakenly attached to postgres' security group instead of mysql's security group
+
 ## v2.1.0 (Sep 11, 2019)
 
 FEATURES:
