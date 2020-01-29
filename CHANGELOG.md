@@ -1,3 +1,9 @@
+## v2.1.2 (Jan 29, 2020)
+
+ENHANCEMENTS:
+
+* feature: Allow egress on port 80 on bastion hosts so that they can install more tooling from apt-get
+
 ## v2.1.1 (Jan 23, 2020)
 BUG FIXES:
 
