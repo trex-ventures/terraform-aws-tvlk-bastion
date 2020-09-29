@@ -1,28 +1,30 @@
-data "aws_region" "current" {}
+data "aws_region" "current" {
+}
 
-data "aws_caller_identity" "aws_account" {}
+data "aws_caller_identity" "aws_account" {
+}
 
 data "aws_subnet_ids" "subnet" {
-  vpc_id = "${var.vpc_id}"
+  vpc_id = var.vpc_id
 
-  filter = {
+  filter {
     name   = "tag:Tier"
-    values = ["${var.subnet_tier}"]
+    values = [var.subnet_tier]
   }
 }
 
 data "aws_ami" "bastion_ami" {
   most_recent = "true"
-  owners      = ["${var.ami_owner_account_id}"]
+  owners      = [var.ami_owner_account_id]
 
-  filter = {
+  filter {
     name   = "name"
-    values = ["${var.ami_name_prefix}"]
+    values = [var.ami_name_prefix]
   }
 }
 
 data "aws_subnet_ids" "app" {
-  vpc_id = "${var.vpc_id}"
+  vpc_id = var.vpc_id
 
   tags = {
     Tier = "app"
@@ -52,3 +54,4 @@ data "aws_iam_policy_document" "dynamodb_access" {
     ]
   }
 }
+
