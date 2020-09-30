@@ -1,6 +1,6 @@
 # ASG
 module "aws-autoscaling_bastion_asg" {
-  source = "github.com/traveloka/terraform-aws-autoscaling?ref=v0.1.5"
+  source = "github.com/traveloka/terraform-aws-autoscaling?ref=v0.1.9-rolling"
 
   product_domain = var.product_domain
   service_name   = var.service_name
@@ -34,7 +34,7 @@ module "aws-autoscaling_bastion_asg" {
 
 # Instance Role
 module "bastion" {
-  source = "github.com/traveloka/terraform-aws-iam-role.git//modules/instance?ref=v1.0.2"
+  source = "github.com/traveloka/terraform-aws-iam-role.git//modules/instance?ref=v2.0.2"
 
   service_name   = var.service_name
   cluster_role   = local.role
