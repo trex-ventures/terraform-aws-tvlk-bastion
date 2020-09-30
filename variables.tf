@@ -100,7 +100,7 @@ variable "lc_user_data" {
 }
 
 variable "additional_asg_tags" {
-  type        = list(string)
+  type        = list(map(string))
   default     = []
   description = "The created ASG (and spawned instances) will have these tags, merged over the default"
 }
