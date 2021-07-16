@@ -1,170 +1,182 @@
 # ASG
+locals {
+  name = "${substr(var.product, 0, 3)}bstn"
+}
 module "aws-autoscaling_bastion_asg" {
-  source = "github.com/traveloka/terraform-aws-autoscaling?ref=v0.3.4"
+  source  = "terraform-aws-modules/autoscaling/aws"
+  version = "~> 4.0"
 
-  product_domain = var.product_domain
-  service_name   = var.service_name
-  cluster_role   = local.role
-  environment    = var.environment
 
-  application = local.application
-  description = var.description
-  user_data   = var.user_data
-  volume_size = var.volume_size
-  volume_type = var.volume_type
-  
-  launch_template_overrides    = var.launch_template_overrides
-  mixed_instances_distribution = var.mixed_instances_distribution
+  name                      = local.name
+  min_size                  = var.asg_capacity
+  max_size                  = var.asg_capacity
+  desired_capacity          = var.asg_capacity
+  wait_for_capacity_timeout = 0
+  default_cooldown          = 0
+  health_check_type         = "EC2"
+  vpc_zone_identifier       = data.aws_subnet_ids.subnet.ids
+  security_groups           = concat([aws_security_group.bastion.id], var.additional_security_groups)
+  iam_instance_profile_arn  = module.bastion.iam_instance_profile_arn
 
-  security_groups = [
-    aws_security_group.bastion.id,
+  # Launch template
+  lt_name                = local.name
+  description            = "Launch template of ${local.name}"
+  update_default_version = true
+  create_lt              = true
+  image_id               = data.aws_ami.bastion_ami.image_id
+  instance_type          = var.instance_type
+  ebs_optimized          = var.ebs_optimized
+  enable_monitoring      = true
+  user_data_base64       = base64encode(local.user_data)
+
+  use_mixed_instances_policy = true
+  mixed_instances_policy = {
+    instances_distribution = var.mixed_instances_distribution
+    override               = var.launch_template_overrides
+  }
+
+  block_device_mappings = [
+    {
+      # Root volume
+      device_name = "/dev/xvda"
+      no_device   = 0
+      ebs = {
+        delete_on_termination = true
+        encrypted             = true
+        volume_size           = 8
+        volume_type           = "gp3"
+      }
+    },
   ]
 
-  instance_profile_name = module.bastion.instance_profile_name
-  image_owners          = [var.ami_owner_account_id]
-
-  image_filters = [
+  tag_specifications = [
     {
-      name   = "name"
-      values = [var.ami_name_prefix]
+      resource_type = "instance"
+      tags          = { Type = "Instance" }
     },
     {
-      name   = "virtualization-type"
-      values = ["hvm"]
+      resource_type = "volume"
+      tags          = { Type = "Volume" }
     },
   ]
 
-
-
-  asg_vpc_zone_identifier       = data.aws_subnet_ids.subnet.ids
-  asg_min_capacity              = var.asg_capacity
-  asg_max_capacity              = var.asg_capacity
-  asg_health_check_grace_period = var.asg_health_check_grace_period
-  asg_default_cooldown          = var.asg_default_cooldown
-  asg_health_check_type         = var.asg_health_check_type
-  asg_wait_for_capacity_timeout = var.asg_wait_for_capacity_timeout
-  asg_tags                      = var.additional_asg_tags
+  tags = concat([
+    {
+      key                 = "Environment"
+      value               = var.environment
+      propagate_at_launch = true
+    },
+    {
+      key                 = "Product"
+      value               = var.product
+      propagate_at_launch = true
+    },
+    {
+      key                 = "Service"
+      value               = local.name
+      propagate_at_launch = true
+    },
+    {
+      key                 = "Role"
+      value               = var.service_role
+      propagate_at_launch = true
+    },
+  ], var.additional_asg_tags)
 }
 
 # Instance Role
 module "bastion" {
-  source = "github.com/traveloka/terraform-aws-iam-role.git//modules/instance?ref=v2.0.2"
+  source  = "terraform-aws-modules/iam/aws//modules/iam-assumable-role"
+  version = "~> 4.0"
 
-  service_name   = var.service_name
-  cluster_role   = local.role
-  product_domain = var.product_domain
-  environment    = var.environment
+  create_role             = true
+  create_instance_profile = true
+  force_detach_policies   = true
+  role_name               = "BastionInstanceProfile"
+  role_path               = "/service/ec2/"
+  role_requires_mfa       = false
+  role_description        = "Service role for RDS Enhanced Monitoring"
+
+  trusted_role_services = [
+    "ec2.amazonaws.com"
+  ]
 }
+
 
 resource "aws_iam_role_policy" "policy_dynamodb_access" {
   name   = "DynamoDBAccess"
-  role   = module.bastion.role_name
+  role   = module.bastion.iam_role_name
   policy = data.aws_iam_policy_document.dynamodb_access.json
 }
 
 # Security Groups
 resource "aws_security_group" "bastion" {
-  name        = "${var.service_name}-${local.role}"
+  name        = local.name
   vpc_id      = var.vpc_id
-  description = "${var.service_name}-${local.role} security group"
+  description = "${local.name} security group"
 
   tags = {
-    Name          = "${var.service_name}-${local.role}"
-    Service       = var.service_name
-    ProductDomain = var.product_domain
-    Environment   = var.environment
-    Description   = "Security group for ${var.service_name}-${local.role}"
-    ManagedBy     = "terraform"
+    Description = "Security group for ${local.name}"
   }
 }
 
 resource "aws_security_group" "postgres" {
-  name        = "${var.service_name}-postgres"
+  name        = "${local.name}-postgres"
   vpc_id      = var.vpc_id
-  description = "${var.service_name}-postgres security group"
+  description = "${local.name}-postgres security group"
 
   tags = {
-    Name          = "${var.service_name}-postgres"
-    Service       = var.service_name
-    ProductDomain = var.product_domain
-    Environment   = var.environment
-    Description   = "Security group for ${var.service_name}-postgres"
-    ManagedBy     = "terraform"
+    Description = "Security group for ${local.name}-postgres"
   }
 }
 
 resource "aws_security_group" "mongod" {
-  name        = "${var.service_name}-mongod"
+  name        = "${local.name}-mongod"
   vpc_id      = var.vpc_id
-  description = "${var.service_name}-mongod security group"
+  description = "${local.name}-mongod security group"
 
   tags = {
-    Name          = "${var.service_name}-mongod"
-    Service       = var.service_name
-    ProductDomain = var.product_domain
-    Environment   = var.environment
-    Description   = "Security group for ${var.service_name}-mongod"
-    ManagedBy     = "terraform"
+    Description = "Security group for ${local.name}-mongod"
   }
 }
 
 resource "aws_security_group" "mysql" {
-  name        = "${var.service_name}-mysql"
+  name        = "${local.name}-mysql"
   vpc_id      = var.vpc_id
-  description = "${var.service_name}-mysql security group"
+  description = "${local.name}-mysql security group"
 
   tags = {
-    Name          = "${var.service_name}-mysql"
-    Service       = var.service_name
-    ProductDomain = var.product_domain
-    Environment   = var.environment
-    Description   = "Security group for ${var.service_name}-mysql"
-    ManagedBy     = "terraform"
+    Description = "Security group for ${local.name}-mysql"
   }
 }
 
 resource "aws_security_group" "memcached" {
-  name        = "${var.service_name}-memcached"
+  name        = "${local.name}-memcached"
   vpc_id      = var.vpc_id
-  description = "${var.service_name}-memcached security group"
+  description = "${local.name}-memcached security group"
 
   tags = {
-    Name          = "${var.service_name}-memcached"
-    Service       = var.service_name
-    ProductDomain = var.product_domain
-    Environment   = var.environment
-    Description   = "Security group for ${var.service_name}-memcached"
-    ManagedBy     = "terraform"
+    Description = "Security group for ${local.name}-memcached"
   }
 }
 
 resource "aws_security_group" "redis" {
-  name        = "${var.service_name}-redis"
+  name        = "${local.name}-redis"
   vpc_id      = var.vpc_id
-  description = "${var.service_name}-redis security group"
+  description = "${local.name}-redis security group"
 
   tags = {
-    Name          = "${var.service_name}-redis"
-    Service       = var.service_name
-    ProductDomain = var.product_domain
-    Environment   = var.environment
-    Description   = "Security group for ${var.service_name}-redis"
-    ManagedBy     = "terraform"
+    Description = "Security group for ${local.name}-redis"
   }
 }
 
 resource "aws_security_group" "elasticsearch" {
-  name        = "${var.service_name}-elasticsearch"
+  name        = "${local.name}-elasticsearch"
   vpc_id      = var.vpc_id
-  description = "${var.service_name}-elasticsearch security group"
+  description = "${local.name}-elasticsearch security group"
 
   tags = {
-    Name          = "${var.service_name}-elasticsearch"
-    Service       = var.service_name
-    ProductDomain = var.product_domain
-    Environment   = var.environment
-    Description   = "Security group for ${var.service_name}-elasticsearch"
-    ManagedBy     = "terraform"
+    Description = "Security group for ${local.name}-elasticsearch"
   }
 }
 
@@ -176,7 +188,7 @@ resource "aws_security_group_rule" "bastion_https_all" {
   protocol          = "tcp"
   security_group_id = aws_security_group.bastion.id
   cidr_blocks       = ["0.0.0.0/0"]
-  description       = "Egress from ${var.service_name}-${local.role} to all in 443"
+  description       = "Egress from ${local.name} to all in 443"
 }
 
 resource "aws_security_group_rule" "bastion_http_all" {
@@ -186,7 +198,7 @@ resource "aws_security_group_rule" "bastion_http_all" {
   protocol          = "tcp"
   security_group_id = aws_security_group.bastion.id
   cidr_blocks       = ["0.0.0.0/0"]
-  description       = "Egress from ${var.service_name}-${local.role} to all in 80"
+  description       = "Egress from ${local.name} to all in 80"
 }
 
 resource "aws_security_group_rule" "bastion_ssh_all" {
@@ -196,7 +208,7 @@ resource "aws_security_group_rule" "bastion_ssh_all" {
   protocol          = "tcp"
   security_group_id = aws_security_group.bastion.id
   cidr_blocks       = ["0.0.0.0/0"]
-  description       = "Egress from ${var.service_name}-${local.role} to all in 22"
+  description       = "Egress from ${local.name} to all in 22"
 }
 
 resource "aws_security_group_rule" "egress_from_bastion_to_postgres_5432" {
@@ -206,7 +218,7 @@ resource "aws_security_group_rule" "egress_from_bastion_to_postgres_5432" {
   protocol                 = "tcp"
   security_group_id        = aws_security_group.bastion.id
   source_security_group_id = aws_security_group.postgres.id
-  description              = "Egress from ${var.service_name}-${local.role} to ${var.service_name}-postgres in 5432"
+  description              = "Egress from ${local.name} to ${local.name}-postgres in 5432"
 }
 
 resource "aws_security_group_rule" "egress_from_bastion_to_mongod_27017" {
@@ -216,7 +228,7 @@ resource "aws_security_group_rule" "egress_from_bastion_to_mongod_27017" {
   protocol                 = "tcp"
   security_group_id        = aws_security_group.bastion.id
   source_security_group_id = aws_security_group.mongod.id
-  description              = "Egress from ${var.service_name}-${local.role} to ${var.service_name}-mongod in 27017"
+  description              = "Egress from ${local.name} to ${local.name}-mongod in 27017"
 }
 
 resource "aws_security_group_rule" "ingress_from_bastion_to_postgres_5432" {
@@ -226,7 +238,7 @@ resource "aws_security_group_rule" "ingress_from_bastion_to_postgres_5432" {
   protocol                 = "tcp"
   security_group_id        = aws_security_group.postgres.id
   source_security_group_id = aws_security_group.bastion.id
-  description              = "Ingress from ${var.service_name}-${local.role} to ${var.service_name}-postgres in 5432"
+  description              = "Ingress from ${local.name} to ${local.name}-postgres in 5432"
 }
 
 resource "aws_security_group_rule" "ingress_from_bastion_to_mongod_27017" {
@@ -236,7 +248,7 @@ resource "aws_security_group_rule" "ingress_from_bastion_to_mongod_27017" {
   protocol                 = "tcp"
   security_group_id        = aws_security_group.mongod.id
   source_security_group_id = aws_security_group.bastion.id
-  description              = "Ingress from ${var.service_name}-${local.role} to ${var.service_name}-mongod in 27017"
+  description              = "Ingress from ${local.name} to ${local.name}-mongod in 27017"
 }
 
 resource "aws_security_group_rule" "egress_from_bastion_to_mysql_3306" {
@@ -246,7 +258,7 @@ resource "aws_security_group_rule" "egress_from_bastion_to_mysql_3306" {
   protocol                 = "tcp"
   security_group_id        = aws_security_group.bastion.id
   source_security_group_id = aws_security_group.mysql.id
-  description              = "Egress from ${var.service_name}-${local.role} to ${var.service_name}-mysql in 3306"
+  description              = "Egress from ${local.name} to ${local.name}-mysql in 3306"
 }
 
 resource "aws_security_group_rule" "ingress_from_bastion_to_mysql_3306" {
@@ -256,7 +268,7 @@ resource "aws_security_group_rule" "ingress_from_bastion_to_mysql_3306" {
   protocol                 = "tcp"
   security_group_id        = aws_security_group.mysql.id
   source_security_group_id = aws_security_group.bastion.id
-  description              = "Ingress from ${var.service_name}-${local.role} to ${var.service_name}-mysql in 3306"
+  description              = "Ingress from ${local.name} to ${local.name}-mysql in 3306"
 }
 
 resource "aws_security_group_rule" "egress_from_bastion_to_memcached_11211" {
@@ -266,7 +278,7 @@ resource "aws_security_group_rule" "egress_from_bastion_to_memcached_11211" {
   protocol                 = "tcp"
   security_group_id        = aws_security_group.bastion.id
   source_security_group_id = aws_security_group.memcached.id
-  description              = "Egress from ${var.service_name}-${local.role} to ${var.service_name}-memcached in 11211"
+  description              = "Egress from ${local.name} to ${local.name}-memcached in 11211"
 }
 
 resource "aws_security_group_rule" "ingress_from_bastion_to_memcached_11211" {
@@ -276,7 +288,7 @@ resource "aws_security_group_rule" "ingress_from_bastion_to_memcached_11211" {
   protocol                 = "tcp"
   security_group_id        = aws_security_group.memcached.id
   source_security_group_id = aws_security_group.bastion.id
-  description              = "Ingress from ${var.service_name}-${local.role} to ${var.service_name}-memcached in 11211"
+  description              = "Ingress from ${local.name} to ${local.name}-memcached in 11211"
 }
 
 resource "aws_security_group_rule" "egress_from_bastion_to_redis_6379" {
@@ -286,7 +298,7 @@ resource "aws_security_group_rule" "egress_from_bastion_to_redis_6379" {
   protocol                 = "tcp"
   security_group_id        = aws_security_group.bastion.id
   source_security_group_id = aws_security_group.redis.id
-  description              = "Egress from ${var.service_name}-${local.role} to ${var.service_name}-redis in 6379"
+  description              = "Egress from ${local.name} to ${local.name}-redis in 6379"
 }
 
 resource "aws_security_group_rule" "ingress_from_bastion_to_redis_6379" {
@@ -296,7 +308,7 @@ resource "aws_security_group_rule" "ingress_from_bastion_to_redis_6379" {
   protocol                 = "tcp"
   security_group_id        = aws_security_group.redis.id
   source_security_group_id = aws_security_group.bastion.id
-  description              = "Ingress from ${var.service_name}-${local.role} to ${var.service_name}-redis in 6379"
+  description              = "Ingress from ${local.name} to ${local.name}-redis in 6379"
 }
 
 resource "aws_security_group_rule" "egress_from_bastion_to_elasticsearch_443" {
@@ -306,7 +318,7 @@ resource "aws_security_group_rule" "egress_from_bastion_to_elasticsearch_443" {
   protocol                 = "tcp"
   security_group_id        = aws_security_group.bastion.id
   source_security_group_id = aws_security_group.elasticsearch.id
-  description              = "Egress from ${var.service_name}-${local.role} to ${var.service_name}-elasticsearch in 443"
+  description              = "Egress from ${local.name} to ${local.name}-elasticsearch in 443"
 }
 
 resource "aws_security_group_rule" "ingress_from_bastion_to_elasticsearch_443" {
@@ -316,6 +328,6 @@ resource "aws_security_group_rule" "ingress_from_bastion_to_elasticsearch_443" {
   protocol                 = "tcp"
   security_group_id        = aws_security_group.elasticsearch.id
   source_security_group_id = aws_security_group.bastion.id
-  description              = "Ingress from ${var.service_name}-${local.role} to ${var.service_name}-elasticsearch in 443"
+  description              = "Ingress from ${local.name} to ${local.name}-elasticsearch in 443"
 }
 

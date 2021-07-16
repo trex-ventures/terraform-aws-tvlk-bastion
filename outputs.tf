@@ -1,8 +1,19 @@
 output "asg_bastion_name" {
   description = "The name of the auto scaling group for bastion"
-  value       = module.aws-autoscaling_bastion_asg.asg_name
+  value       = module.aws-autoscaling_bastion_asg.autoscaling_group_name
 }
 
+output "asg_launch_template_id" {
+  value = module.aws-autoscaling_bastion_asg.launch_template_id
+}
+
+output "asg_launch_template_latest_version" {
+  value = module.aws-autoscaling_bastion_asg.launch_template_latest_version
+}
+
+output "asg_user_data" {
+  value = local.user_data
+}
 output "sg_bastion_id" {
   description = "id of security group for bastion instance."
   value       = aws_security_group.bastion.id
@@ -38,8 +49,17 @@ output "shared_sg_elasticsearch_id" {
   value       = aws_security_group.elasticsearch.id
 }
 
-output "instance_role_name" {
+output "iam_role_name" {
   description = "role name for the instances."
-  value       = module.bastion.role_name
+  value       = module.bastion.iam_role_name
 }
 
+output "instance_profile_name" {
+  description = "role name for the instance role."
+  value       = module.bastion.iam_instance_profile_name
+}
+
+output "iam_role_arn" {
+  description = "role name for the instances."
+  value       = module.bastion.iam_role_arn
+}

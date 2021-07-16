@@ -35,6 +35,6 @@ output "shared_sg_redis_id" {
 
 output "instance_role_name" {
   description = "role name for the instances."
-  value       = module.this.instance_role_name
+  value       = module.this.instance_profile_name
 }
 

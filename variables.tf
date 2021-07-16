@@ -4,9 +4,10 @@ variable "ebs_optimized" {
   type        = string
 }
 
-variable "service_name" {
-  description = "service name for the instance"
+variable "service_role" {
+  description = "service role for the instance"
   type        = string
+  default     = "bastion"
 }
 
 variable "vpc_id" {
@@ -23,23 +24,24 @@ variable "subnet_tier" {
 variable "ami_owner_account_id" {
   description = "aws account id who owns the golden bastion AMI owner."
   type        = string
+  default     = "099720109477" #canonical - https://ubuntu.com/server/docs/cloud-images/amazon-ec2
 }
 
-variable "product_domain" {
+variable "product" {
   description = "product domain who own this ec2 instances."
   type        = string
 }
 
 variable "instance_type" {
   description = "instance type for bastion hosts."
-  default     = "t2.medium"
+  default     = "t3.micro"
   type        = string
 }
 
 variable "volume_size" {
   description = "size for root volume instances."
-  default     = "8"
-  type        = string
+  default     = 8
+  type        = number
 }
 
 variable "volume_type" {
@@ -55,8 +57,8 @@ variable "environment" {
 
 variable "ami_name_prefix" {
   description = "prefix for ami filter"
-  default     = "tvlk/ubuntu-20/tsi/bastion*"
   type        = string
+  default     = "ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"
 }
 
 variable "enable_detailed_monitoring" {
@@ -67,7 +69,7 @@ variable "enable_detailed_monitoring" {
 
 variable "asg_capacity" {
   description = "capacity of ec2 instances for autoscaling group"
-  type        = string
+  type        = number
 }
 
 variable "description" {
@@ -111,15 +113,21 @@ variable "additional_asg_tags" {
   description = "The created ASG (and spawned instances) will have these tags, merged over the default"
 }
 
+variable "additional_security_groups" {
+  type        = list(string)
+  default     = []
+  description = "Additional security group ids to be attached to the instance"
+}
+
 variable "launch_template_overrides" {
   type = list(map(string))
 
   default = [
     {
-      "instance_type" = "t3a.nano"
+      "instance_type" = "t3a.micro"
     },
     {
-      "instance_type" = "t3.nano"
+      "instance_type" = "t3.micro"
     },
   ]
 
@@ -136,9 +144,26 @@ variable "mixed_instances_distribution" {
   default = {
     on_demand_allocation_strategy            = "prioritized"
     on_demand_base_capacity                  = "0"
-    on_demand_percentage_above_base_capacity = "100"
+    on_demand_percentage_above_base_capacity = "0"
     spot_allocation_strategy                 = "lowest-price"
     spot_instance_pools                      = "2"
     spot_max_price                           = ""
   }
+}
+
+variable "tag_specifications" {
+  type = list(object({
+    resource_type = string
+    tags          = map(string)
+  }))
+  default = [
+    {
+      resource_type = "instance"
+      tags          = { Type = "Instance" }
+    },
+    {
+      resource_type = "volume"
+      tags          = { Type = "Volume" }
+    },
+  ]
 }

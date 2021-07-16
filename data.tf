@@ -21,6 +21,11 @@ data "aws_ami" "bastion_ami" {
     name   = "name"
     values = [var.ami_name_prefix]
   }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
 }
 
 data "aws_iam_policy_document" "dynamodb_access" {
@@ -42,7 +47,7 @@ data "aws_iam_policy_document" "dynamodb_access" {
     ]
 
     resources = [
-      "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.aws_account.account_id}:table/${var.product_domain}*",
+      "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.aws_account.account_id}:table/${var.product}*",
     ]
   }
 }
